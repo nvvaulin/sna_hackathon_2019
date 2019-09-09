@@ -3,7 +3,6 @@ import mxnet as mx
 from sklearn.metrics import roc_curve
 import matplotlib.pyplot as plt
 
-%matplotlib inline
 class DataIterHideLabel(mx.io.DataIter):
     def __init__(self,data_iter):
         self.data_iter=data_iter

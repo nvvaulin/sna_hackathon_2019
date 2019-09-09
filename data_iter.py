@@ -90,17 +90,16 @@ class DataIter(mx.io.DataIter):
         return mx.io.DataBatch(data=data,label=label,pad=(self.batch_size-l))
     
     
-    
-
 class SeqDataIter(mx.io.DataIter):
     def __init__(self,data_path,batch_size,data_names,label_names=[],shuffle=False,nan_aug=1e-4,max_len=None,usampling=False,seq_len=8):
-        self.data,self.params = self.load_data(data_path,data_names+label_names)
+        assert batch_size % seq_len == 0,'seq_len should devide batch_size'
+        self.data,self.params = self.load_data(data_path,data_names+label_names+['instanceId_userId'])
         self.nan_aug = nan_aug
         self.shuffle = shuffle
         self.batch_size = batch_size
         self.provide_data = [(i,(self.batch_size,)+self.data[i].shape[1:]) for i in data_names]
         self.provide_label = [(i,(self.batch_size,)) for i in label_names]
-
+        self.seq_len = seq_len
         self.max_len = max_len
         self.usampling = usampling
         self.reset()
@@ -121,8 +120,19 @@ class SeqDataIter(mx.io.DataIter):
             label = self.data[self.provide_label[0][0]].flatten()
             ulabel,cts = np.unique(label,return_counts=True)
             self.inx = np.concatenate([np.random.choice(self.inx[label==l],cts.min(),replace=False) for l in ulabel])
+        uid = self.data['instanceId_userId'].flatten()
+        self.inx = self.inx[np.argsort(uid[self.inx])]
+        
+        uid = uid[self.inx]
+        inx = []
+        for u in np.unique(uid):
+            i = self.inx[np.searchsorted(uid,u,'left'):np.searchsorted(uid,u,'right')]
+            inx.append(np.random.choice(i,self.seq_len))
+            
         if(self.shuffle):
             np.random.shuffle(self.inx)
+            
+        self.inx = np.concatenate(inx)
         if not(self.max_len is None):
             self.inx=self.inx[:self.max_len]
         self.cur = 0

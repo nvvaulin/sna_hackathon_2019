@@ -16,21 +16,40 @@ def make_input(name,s,t):
             return mx.sym.Variable(name)
         else:
             return mx.sym.Embedding(mx.sym.Variable(name),name=name+'_emb',input_dim=s,output_dim=emb_size(s)).reshape((0,-1))
-        
-def make_network(data_iter):
+
+def seq2seq(net,seq_len,feedback=mx.sym.var('feedback')):
+    def make_layer(data,num_features,name,dop=0.5):
+        data = mx.sym.FullyConnected(data,num_hidden=num_features,name='fc'+name)
+        data = mx.sym.BatchNorm(data,name='bn'+name)
+        data = mx.sym.Activation(data,name='softrelu'+name,act_type='softrelu')
+        return mx.sym.Dropout(data,p=dop)
+    res = make_layer(net,256,'m0')
+    res = mx.sym.broadcast_mul(mx.sym.expand_dims(res,1),\
+                               mx.sym.expand_dims(mx.sym.concat(feedback,1-feedback,dim=1),2)).reshape((0,-1))
+
+    res = make_layer(res,256,'m1')
+    res = res.reshape((-1,seq_len,256))
+    res = mx.sym.broadcast_minus(mx.sym.sum(res,1,keepdims=True),res)/(seq_len-1)
+    res = res.reshape((-1,256))
+    res = mx.sym.concat(res,net,dim=1)
+    res = make_layer(res,512,'m2')
+    return res
+    
+def make_network(data_iter,seq_len):
     def make_layer(data,num_features,name,dop=0.5):
         data = mx.sym.FullyConnected(data,num_hidden=num_features,name='fc'+name)
         data = mx.sym.BatchNorm(data,name='bn'+name)
         data = mx.sym.Activation(data,name='softrelu'+name,act_type='softrelu')
         return mx.sym.Dropout(data,p=dop)
     
-    inputs = [make_input(i[0],*data_iter.get_feature_size(i[0])) for i in data_iter.provide_data]
+    inputs = [make_input(i[0],*data_iter.get_feature_size(i[0])) for i in data_iter.provide_data if i[0] != 'feedback']
     res = mx.sym.concat(*inputs,dim=1,name='total_feature')
     res = mx.sym.BatchNorm(res,name='bn1')
     res = mx.sym.Activation(res,name='softrelu1',act_type='softrelu')
     res = make_layer(res,1024,'2')
     res = make_layer(res,1024,'3')
     res = make_layer(res,512,'4')
+    res = seq2seq(res,seq_len)
     return mx.sym.FullyConnected(res,num_hidden=2,name='output')
 
 def add_loss(net):
