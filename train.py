@@ -3,24 +3,6 @@ import logging
 from callbacks import Log2file
 import os
 
-# class LossMetric(mx.metric.EvalMetric):
-#     def __init__(self, output_idx=0,name=None):
-#         super(LossMetric, self).__init__((name or str(output_idx)) + '_loss')
-#         self.output_idx = output_idx
-#     def update(self, labels, preds):
-#         preds = list(preds)
-#         self.sum_metric += preds[self.output_idx].asnumpy()[0]
-#         self.num_inst += 1
-        
-# class AccuracyMetric(mx.metric.EvalMetric):
-#     def __init__(self, output_idx=0,name=None):
-#         super(AccuracyMetric, self).__init__((name or str(output_idx)) + '_acc')
-#         self.output_idx = output_idx
-        
-#     def update(self, labels, preds):
-#         preds = list(preds)
-#         self.sum_metric += ((preds[self.output_idx].asnumpy() > 0.5)==labels[0].asnumpy()).sum()
-#         self.num_inst += len(preds[0])
 
 def get_lr_scheduler(epoch_size, lr,
                      lr_factor, step_epochs,
